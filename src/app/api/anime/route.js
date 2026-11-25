@@ -7,7 +7,7 @@ import {
   getAnimeEpisodes,
   getLatestAnime,
   getStreamData
-} from '@/lib/animein';
+} from '../../../lib/animein.js';
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
