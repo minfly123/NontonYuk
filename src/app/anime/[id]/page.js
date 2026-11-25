@@ -3,7 +3,25 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Download, Server, PlayCircle, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Download, Server, PlayCircle, ExternalLink, Tv } from 'lucide-react';
+
+function formatEpisodeLabel(ep) {
+  const raw = String(ep?.episode ?? ep?.title ?? '').trim();
+  if (!raw) return 'Ep';
+  return raw.replace(/^episode\s*/i, '').trim() || raw;
+}
+
+function isSafeIframeUrl(url) {
+  if (!url || typeof url !== 'string') return false;
+  try {
+    const parsed = new URL(url);
+    // Halaman resmi animeinweb.com memakai X-Frame-Options: SAMEORIGIN sehingga ditolak di iframe
+    if (parsed.hostname.includes('animeinweb.com')) return false;
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
 
 export default function AnimeDetailPage() {
   const { id } = useParams();
@@ -35,23 +53,43 @@ export default function AnimeDetailPage() {
     setLoadingStream(true);
     try {
       const res = await fetch(`/api/anime?action=stream&id=${ep.id}`).then((r) => r.json());
-      setStreamData(res.data);
-      setSelectedEmbed(res.data?.iframe || res.data?.official || '');
+      const info = res.data || {};
+      setStreamData(info);
+
+      const embedServers = (info.servers || []).filter((s) => isSafeIframeUrl(s.embed));
+      if (embedServers.length > 0) {
+        setSelectedEmbed(embedServers[0].embed);
+      } else if (isSafeIframeUrl(info.iframe)) {
+        setSelectedEmbed(info.iframe);
+      } else {
+        setSelectedEmbed('');
+      }
     } catch (err) {
       console.error(err);
+      setSelectedEmbed('');
     } finally {
       setLoadingStream(false);
     }
   }
 
   if (!detail) {
-    return <div className="glass-card rounded-3xl p-10 text-center text-sm font-semibold">Memuat detail anime...</div>;
+    return (
+      <div className="glass-card rounded-3xl p-10 text-center text-sm font-semibold">
+        Memuat detail anime...
+      </div>
+    );
   }
+
+  const epLabel = activeEp ? `Episode ${formatEpisodeLabel(activeEp)}` : detail.title;
+  const watchExternalUrl = streamData?.official || detail.watch_url || '';
+  const safeServers = (streamData?.servers || []).filter((s) => isSafeIframeUrl(s.embed));
 
   return (
     <div className="space-y-5">
-      {/* Tombol Kembali */}
-      <Link href="/" className="inline-flex items-center gap-2 glass-card px-4 py-2 rounded-full text-xs font-bold text-slate-700 hover:bg-white">
+      <Link
+        href="/"
+        className="inline-flex items-center gap-2 glass-card px-4 py-2 rounded-full text-xs font-bold text-slate-700 hover:bg-white"
+      >
         <ArrowLeft className="w-4 h-4" /> Kembali ke Beranda
       </Link>
 
@@ -64,51 +102,81 @@ export default function AnimeDetailPage() {
             </div>
           ) : selectedEmbed ? (
             <iframe
+              key={selectedEmbed}
               src={selectedEmbed}
               className="w-full h-full border-0"
               allowFullScreen
-              allow="autoplay; fullscreen"
+              referrerPolicy="no-referrer"
+              allow="autoplay; fullscreen; encrypted-media"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-slate-400 text-sm">
-              Pilih episode di bawah untuk mulai menonton
+            <div className="w-full h-full flex flex-col items-center justify-center gap-3 p-5 text-center text-white bg-gradient-to-br from-slate-900 via-purple-950 to-slate-900">
+              <Tv className="w-8 h-8 text-pink-400" />
+              <div className="space-y-1 max-w-sm">
+                <p className="text-xs font-bold text-white">
+                  {detail.title} — {epLabel}
+                </p>
+                <p className="text-[11px] text-slate-300 leading-relaxed">
+                  Sumber stream episode ini memblokir pemutar di dalam frame web. Buka langsung atau unduh MP4 di bawah.
+                </p>
+              </div>
+              {watchExternalUrl && (
+                <a
+                  href={watchExternalUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-4 py-2 rounded-full glow-badge text-xs font-bold text-white inline-flex items-center gap-1.5 shadow-lg"
+                >
+                  Tonton di Tab Baru <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              )}
             </div>
           )}
         </div>
 
         {/* Info Episode Aktif & Ganti Server */}
         <div className="flex flex-wrap items-center justify-between gap-2 px-1">
-          <div>
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold text-white glow-badge mr-2">
+          <div className="flex items-center flex-wrap gap-2">
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold text-white glow-badge">
               SEDANG DIPUTAR
             </span>
-            <span className="font-bold text-sm text-slate-800">
-              {activeEp ? `Episode ${activeEp.episode || activeEp.title}` : detail.title}
-            </span>
+            <span className="font-bold text-sm text-slate-800">{epLabel}</span>
           </div>
 
-          {/* Pilihan Server Embed */}
-          {streamData?.servers?.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5">
-              <Server className="w-3.5 h-3.5 text-purple-600" />
-              {streamData.servers.map((srv, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setSelectedEmbed(srv.embed)}
-                  className={`px-2.5 py-1 rounded-xl text-[11px] font-bold transition ${
-                    selectedEmbed === srv.embed
-                      ? 'bg-purple-600 text-white'
-                      : 'bg-white/80 text-slate-700 hover:bg-white'
-                  }`}
-                >
-                  {srv.name} ({srv.quality})
-                </button>
-              ))}
-            </div>
-          )}
+          <div className="flex flex-wrap items-center gap-1.5">
+            {safeServers.length > 0 && (
+              <>
+                <Server className="w-3.5 h-3.5 text-purple-600" />
+                {safeServers.map((srv, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setSelectedEmbed(srv.embed)}
+                    className={`px-2.5 py-1 rounded-xl text-[11px] font-bold transition ${
+                      selectedEmbed === srv.embed
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-white/80 text-slate-700 hover:bg-white'
+                    }`}
+                  >
+                    {srv.name} ({srv.quality})
+                  </button>
+                ))}
+              </>
+            )}
+
+            {watchExternalUrl && (
+              <a
+                href={watchExternalUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-pink-100 text-pink-700 hover:bg-pink-200 transition inline-flex items-center gap-1"
+              >
+                Sumber Asli <ExternalLink className="w-3 h-3" />
+              </a>
+            )}
+          </div>
         </div>
 
-        {/* Link Download Direct MP4 (Sesuai fitur scraper kamu) */}
+        {/* Link Download Direct MP4 */}
         {streamData?.downloads?.length > 0 && (
           <div className="bg-white/60 rounded-2xl p-3 flex flex-wrap items-center justify-between gap-2">
             <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
@@ -136,20 +204,20 @@ export default function AnimeDetailPage() {
         <h3 className="font-extrabold text-sm text-slate-800 flex items-center gap-2">
           <PlayCircle className="w-4 h-4 text-purple-600" /> Daftar Episode ({episodes.length})
         </h3>
-        <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2 max-h-60 overflow-y-auto pr-1">
+        <div className="grid grid-cols-3 sm:grid-cols-6 md:grid-cols-8 gap-2 max-h-60 overflow-y-auto pr-1">
           {episodes.map((ep) => {
             const isCurrent = activeEp?.id === ep.id;
             return (
               <button
                 key={ep.id}
                 onClick={() => loadEpisodeStream(ep)}
-                className={`py-2 px-2 rounded-xl text-xs font-bold transition ${
+                className={`py-2 px-2 rounded-xl text-xs font-bold transition truncate ${
                   isCurrent
                     ? 'glow-badge text-white'
                     : 'bg-white/80 text-slate-700 hover:bg-purple-100'
                 }`}
               >
-                Ep {ep.episode || ep.title}
+                Ep {formatEpisodeLabel(ep)}
               </button>
             );
           })}
@@ -158,11 +226,14 @@ export default function AnimeDetailPage() {
 
       {/* Sinopsis & Detail Anime */}
       <div className="glass-card rounded-3xl p-4 flex flex-col sm:flex-row gap-4">
-        <img
-          src={detail.image_cover || detail.poster}
-          alt={detail.title}
-          className="w-28 h-40 object-cover rounded-2xl shadow-sm shrink-0"
-        />
+        {(detail.image_cover || detail.poster) && (
+          <img
+            src={detail.image_cover || detail.poster}
+            alt={detail.title}
+            referrerPolicy="no-referrer"
+            className="w-28 h-40 object-cover rounded-2xl shadow-sm shrink-0"
+          />
+        )}
         <div className="space-y-2">
           <h2 className="font-extrabold text-lg text-slate-800">{detail.title}</h2>
           <div className="flex flex-wrap gap-1.5">
@@ -184,5 +255,4 @@ export default function AnimeDetailPage() {
       </div>
     </div>
   );
-    }
-    
+}
