@@ -47,14 +47,18 @@ export default function HomePage() {
     }
   }
 
-  // Ambil daftar populer dari berbagai kemungkinan key API home
-  const hotList = homeData?.hot || homeData?.popular || homeData?.slider || [];
+  const hotList =
+    homeData?.hot ||
+    homeData?.popular ||
+    homeData?.slider ||
+    homeData?.movie ||
+    [];
 
   return (
     <div className="space-y-6">
       {/* Search Bar */}
       <form onSubmit={handleSearch} className="glass-card rounded-2xl p-2 flex items-center gap-2">
-        <Search className="w-5 h-5 text-purple-500 ml-2" />
+        <Search className="w-5 h-5 text-purple-500 ml-2 shrink-0" />
         <input
           type="text"
           value={searchQuery}
@@ -62,12 +66,12 @@ export default function HomePage() {
             setSearchQuery(e.target.value);
             if (!e.target.value) setSearchResults(null);
           }}
-          placeholder="Cari judul anime favoritmu (misal: Naruto, One Piece)..."
+          placeholder="Cari judul anime favoritmu (Naruto, One Piece)..."
           className="w-full bg-transparent outline-none text-sm text-slate-700 placeholder:text-slate-400 py-1.5"
         />
         <button
           type="submit"
-          className="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-purple-700 transition"
+          className="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-purple-700 transition shrink-0"
         >
           {searching ? '...' : 'Cari'}
         </button>
@@ -78,7 +82,7 @@ export default function HomePage() {
         <section className="space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="font-extrabold text-base text-slate-800">
-              Hasil Pencarian: "{searchQuery}"
+              Hasil Pencarian: &ldquo;{searchQuery}&rdquo;
             </h2>
             <button
               onClick={() => { setSearchResults(null); setSearchQuery(''); }}
@@ -94,18 +98,17 @@ export default function HomePage() {
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3">
-              {searchResults.map((item) => (
-                <AnimeCard key={item.id} anime={item} />
+              {searchResults.map((item, idx) => (
+                <AnimeCard key={`${item.id}-${idx}`} anime={item} />
               ))}
             </div>
           )}
         </section>
       )}
 
-      {/* Tampilan Utama (Jika tidak sedang mencari) */}
+      {/* Tampilan Utama */}
       {searchResults === null && (
         <>
-          {/* Section Populer */}
           {hotList.length > 0 && (
             <section className="space-y-3">
               <div className="flex items-center gap-2">
@@ -113,8 +116,8 @@ export default function HomePage() {
                 <h2 className="font-extrabold text-base text-slate-800">Sedang Populer</h2>
               </div>
               <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
-                {hotList.slice(0, 10).map((item) => (
-                  <div key={item.id} className="min-w-[140px] max-w-[140px]">
+                {hotList.slice(0, 10).map((item, idx) => (
+                  <div key={`${item.id}-${idx}`} className="min-w-[145px] max-w-[145px] shrink-0">
                     <AnimeCard anime={item} badge="HOT" />
                   </div>
                 ))}
@@ -122,7 +125,6 @@ export default function HomePage() {
             </section>
           )}
 
-          {/* Section Episode Terbaru */}
           <section className="space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -140,8 +142,8 @@ export default function HomePage() {
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3">
-                {latest.map((item) => (
-                  <AnimeCard key={item.id} anime={item} />
+                {latest.map((item, idx) => (
+                  <AnimeCard key={`${item.id}-${idx}`} anime={item} />
                 ))}
               </div>
             )}
@@ -153,23 +155,50 @@ export default function HomePage() {
 }
 
 function AnimeCard({ anime, badge }) {
-  const poster = anime.image_cover || anime.poster || anime.image || '/placeholder.png';
+  const [imgError, setImgError] = useState(false);
+
+  const rawPoster =
+    anime.image_cover ||
+    anime.cover ||
+    anime.poster ||
+    anime.image ||
+    anime.thumbnail ||
+    '';
+
+  const poster =
+    typeof rawPoster === 'string' && rawPoster.trim()
+      ? rawPoster.startsWith('http')
+        ? rawPoster
+        : `https://${rawPoster.replace(/^\/+/, '')}`
+      : '';
+
   return (
     <Link
       href={`/anime/${anime.id}`}
       className="group glass-card rounded-2xl overflow-hidden flex flex-col transition-transform duration-200 hover:-translate-y-1"
     >
-      <div className="relative aspect-[3/4] w-full overflow-hidden bg-slate-200">
-        <img
-          src={poster}
-          alt={anime.title}
-          loading="lazy"
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+      <div className="relative aspect-[3/4] w-full overflow-hidden bg-gradient-to-br from-purple-200 via-pink-100 to-sky-200">
+        {poster && !imgError ? (
+          <img
+            src={poster}
+            alt={anime.title || 'Anime'}
+            loading="lazy"
+            referrerPolicy="no-referrer"
+            onError={() => setImgError(true)}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          />
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center p-3 text-center">
+            <span className="text-2xl font-black text-purple-600/40 mb-1">NY</span>
+            <span className="text-[11px] font-bold text-slate-600 line-clamp-3">
+              {anime.title}
+            </span>
+          </div>
+        )}
 
-        {/* Badge Status / Episode */}
-        <div className="absolute top-2 left-2 flex gap-1">
+        <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-transparent pointer-events-none" />
+
+        <div className="absolute top-2 left-2 flex flex-wrap gap-1">
           {badge && (
             <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold text-white glow-badge">
               {badge}
@@ -182,7 +211,6 @@ function AnimeCard({ anime, badge }) {
           )}
         </div>
 
-        {/* Tombol Play Hover */}
         <div className="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-white/90 text-purple-600 flex items-center justify-center shadow-md">
           <Play className="w-4 h-4 fill-current ml-0.5" />
         </div>
@@ -200,5 +228,4 @@ function AnimeCard({ anime, badge }) {
       </div>
     </Link>
   );
-            }
-            
+}
