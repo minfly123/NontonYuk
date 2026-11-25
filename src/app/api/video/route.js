@@ -1,29 +1,40 @@
 import { NextResponse } from 'next/server';
 
-const WEB = 'https://animeinweb.com';
-const UA = 'okhttp/4.12.0';
+const DEFAULT_UA = 'okhttp/4.12.0';
 
-function isAllowedUrl(rawUrl) {
+function parseSafeUrl(raw) {
+  if (!raw || typeof raw !== 'string') return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+
+  const normalized = /^https?:\/\//i.test(trimmed)
+    ? trimmed
+    : `https://${trimmed.replace(/^\/+/, '')}`;
+
   try {
-    const u = new URL(rawUrl);
-    return u.protocol === 'https:' || u.protocol === 'http:';
+    const parsed = new URL(normalized);
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return null;
+    return parsed;
   } catch {
-    return false;
+    return null;
   }
 }
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
-  const targetUrl = searchParams.get('url') || '';
+  const target = parseSafeUrl(searchParams.get('url') || '');
 
-  if (!isAllowedUrl(targetUrl)) {
+  if (!target) {
     return NextResponse.json({ error: 'URL video tidak valid' }, { status: 400 });
   }
 
+  const customReferer = (searchParams.get('referer') || '').trim();
+  const refererUrl = customReferer || `${target.origin}/`;
   const rangeHeader = request.headers.get('range');
+
   const upstreamHeaders = {
-    'User-Agent': UA,
-    Referer: `${WEB}/`,
+    'User-Agent': DEFAULT_UA,
+    Referer: refererUrl,
     Accept: '*/*'
   };
 
@@ -32,10 +43,11 @@ export async function GET(request) {
   }
 
   try {
-    const upstream = await fetch(targetUrl, {
+    const upstream = await fetch(target.toString(), {
       headers: upstreamHeaders,
       redirect: 'follow',
-      cache: 'no-store'
+      cache: 'no-store',
+      signal: AbortSignal.timeout(30000)
     });
 
     const responseHeaders = new Headers();
@@ -59,4 +71,3 @@ export async function GET(request) {
     );
   }
 }
-  
