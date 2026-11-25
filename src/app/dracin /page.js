@@ -48,8 +48,16 @@ export default function DracinPage() {
       setErrorMsg('');
       try {
         const [homeRes, trendRes] = await Promise.all([
-          fetch('/api/melolo?action=home&limit=10').then((r) => r.json()),
-          fetch('/api/melolo?action=trending&limit=10').then((r) => r.json()),
+          fetch('/api/melolo?action=home&limit=10').then(async (r) => {
+            const json = await r.json().catch(() => ({}));
+            if (!r.ok) throw new Error(json?.error || `HTTP ${r.status}`);
+            return json;
+          }),
+          fetch('/api/melolo?action=trending&limit=10').then(async (r) => {
+            const json = await r.json().catch(() => ({}));
+            if (!r.ok) throw new Error(json?.error || `HTTP ${r.status}`);
+            return json;
+          }),
         ]);
 
         const homeArr = Array.isArray(homeRes.data) ? homeRes.data : [];
@@ -63,12 +71,8 @@ export default function DracinPage() {
           ...homeArr.filter((b) => b.type !== 'genres'),
         ];
         setSections(contentSections);
-
-        if (homeRes.error && contentSections.length === 0) {
-          setErrorMsg(homeRes.error);
-        }
       } catch (err) {
-        setErrorMsg(err.message || 'Gagal memuat katalog Melolo');
+        setErrorMsg(err?.message || 'Gagal memuat katalog Melolo');
       } finally {
         setLoading(false);
       }
@@ -88,10 +92,14 @@ export default function DracinPage() {
     try {
       const res = await fetch(
         `/api/melolo?action=search&q=${encodeURIComponent(query.trim())}&limit=18`
-      ).then((r) => r.json());
+      ).then(async (r) => {
+        const json = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(json?.error || `HTTP ${r.status}`);
+        return json;
+      });
       setSearchResults(res.data?.items || []);
     } catch (err) {
-      setErrorMsg(err.message || 'Pencarian gagal');
+      setErrorMsg(err?.message || 'Pencarian gagal');
     } finally {
       setLoading(false);
     }
@@ -110,10 +118,14 @@ export default function DracinPage() {
     try {
       const res = await fetch(
         `/api/melolo?action=category&genre=${encodeURIComponent(slug)}&page=1&limit=18`
-      ).then((r) => r.json());
+      ).then(async (r) => {
+        const json = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(json?.error || `HTTP ${r.status}`);
+        return json;
+      });
       setGenreItems(res.data?.items || []);
     } catch (err) {
-      setErrorMsg(err.message || 'Gagal memuat genre');
+      setErrorMsg(err?.message || 'Gagal memuat genre');
     } finally {
       setLoading(false);
     }
@@ -126,13 +138,17 @@ export default function DracinPage() {
     try {
       const res = await fetch(
         `/api/melolo?action=detail&slug=${encodeURIComponent(slug)}&episode=${ep}`
-      ).then((r) => r.json());
+      ).then(async (r) => {
+        const json = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(json?.error || `HTTP ${r.status}`);
+        return json;
+      });
       if (res.data) {
         setActiveDrama(res.data);
         setStreamInfo(res.data.stream || null);
       }
     } catch (err) {
-      setErrorMsg(err.message || 'Gagal membuka detail drama');
+      setErrorMsg(err?.message || 'Gagal membuka detail drama');
     } finally {
       setLoadingDetail(false);
     }
@@ -145,7 +161,11 @@ export default function DracinPage() {
     try {
       const res = await fetch(
         `/api/melolo?action=stream&slug=${encodeURIComponent(activeDrama.series_slug)}&episode=${epNumber}`
-      ).then((r) => r.json());
+      ).then(async (r) => {
+        const json = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(json?.error || `HTTP ${r.status}`);
+        return json;
+      });
       if (res.data) {
         setStreamInfo(res.data);
       }
@@ -337,7 +357,11 @@ export default function DracinPage() {
           </h3>
           <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3">
             {searchResults.map((item) => (
-              <DramaCard key={item.series_slug} item={item} onSelect={() => openDrama(item.series_slug, 1)} />
+              <DramaCard
+                key={item.series_slug}
+                item={item}
+                onSelect={() => openDrama(item.series_slug, 1)}
+              />
             ))}
           </div>
         </section>
@@ -346,7 +370,11 @@ export default function DracinPage() {
           <h3 className="font-extrabold text-sm text-slate-800 uppercase">Genre: {selectedGenre}</h3>
           <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3">
             {genreItems.map((item) => (
-              <DramaCard key={item.series_slug} item={item} onSelect={() => openDrama(item.series_slug, 1)} />
+              <DramaCard
+                key={item.series_slug}
+                item={item}
+                onSelect={() => openDrama(item.series_slug, 1)}
+              />
             ))}
           </div>
         </section>
