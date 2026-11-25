@@ -1,14 +1,29 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Download, PlayCircle, ExternalLink, Film } from 'lucide-react';
+import {
+  ArrowLeft,
+  Download,
+  PlayCircle,
+  ExternalLink,
+  Film,
+  ArrowUpDown,
+  ListPlus,
+  Search
+} from 'lucide-react';
 
 function formatEpisodeLabel(ep) {
   const raw = String(ep?.episode ?? ep?.title ?? '').trim();
   if (!raw) return 'Ep';
   return raw.replace(/^episode\s*/i, '').trim() || raw;
+}
+
+function episodeNumber(ep) {
+  const label = formatEpisodeLabel(ep);
+  const match = label.match(/\d+(\.\d+)?/);
+  return match ? parseFloat(match[0]) : Number.MAX_SAFE_INTEGER;
 }
 
 function isSafeIframeUrl(url) {
@@ -26,6 +41,11 @@ export default function AnimeDetailPage() {
   const { id } = useParams();
   const [detail, setDetail] = useState(null);
   const [episodes, setEpisodes] = useState([]);
+  const [hasNextPage, setHasNextPage] = useState(false);
+  const [loadingAllEp, setLoadingAllEp] = useState(false);
+  const [sortAsc, setSortAsc] = useState(false);
+  const [epFilter, setEpFilter] = useState('');
+
   const [activeEp, setActiveEp] = useState(null);
   const [streamData, setStreamData] = useState(null);
   const [videoSrc, setVideoSrc] = useState('');
@@ -43,12 +63,30 @@ export default function AnimeDetailPage() {
       if (detRes.data) setDetail(detRes.data);
       const epList = epRes.data?.episodes || [];
       setEpisodes(epList);
+      setHasNextPage(Boolean(epRes.data?.has_next));
       if (epList.length > 0) {
         loadEpisodeStream(epList[0]);
       }
     }
     if (id) fetchAnime();
   }, [id]);
+
+  async function handleLoadAllEpisodes() {
+    if (!id || loadingAllEp) return;
+    setLoadingAllEp(true);
+    try {
+      const res = await fetch(`/api/anime?action=episodes&id=${id}&all=1`).then((r) => r.json());
+      const allList = res.data?.episodes || [];
+      if (allList.length > 0) {
+        setEpisodes(allList);
+      }
+      setHasNextPage(false);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingAllEp(false);
+    }
+  }
 
   function selectDirectDownload(dl) {
     if (!dl?.url) return;
@@ -86,6 +124,25 @@ export default function AnimeDetailPage() {
       setLoadingStream(false);
     }
   }
+
+  const visibleEpisodes = useMemo(() => {
+    const query = epFilter.trim().toLowerCase();
+    let list = [...episodes];
+
+    if (sortAsc) {
+      list.sort((a, b) => episodeNumber(a) - episodeNumber(b));
+    }
+
+    if (query) {
+      list = list.filter((ep) => {
+        const label = formatEpisodeLabel(ep).toLowerCase();
+        const title = String(ep?.title ?? '').toLowerCase();
+        return label === query || label.includes(query) || title.includes(query);
+      });
+    }
+
+    return list;
+  }, [episodes, sortAsc, epFilter]);
 
   if (!detail) {
     return (
@@ -219,15 +276,53 @@ export default function AnimeDetailPage() {
 
       {/* Daftar Episode */}
       <div className="glass-card rounded-3xl p-4 space-y-3">
-        <h3 className="font-extrabold text-sm text-slate-800 flex items-center gap-2">
-          <PlayCircle className="w-4 h-4 text-purple-600" /> Daftar Episode ({episodes.length})
-        </h3>
-        <div className="grid grid-cols-3 sm:grid-cols-6 md:grid-cols-8 gap-2 max-h-60 overflow-y-auto pr-1">
-          {episodes.map((ep) => {
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="font-extrabold text-sm text-slate-800 flex items-center gap-2">
+            <PlayCircle className="w-4 h-4 text-purple-600" /> Daftar Episode ({episodes.length})
+          </h3>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Cari Nomor Episode */}
+            <div className="flex items-center gap-1.5 bg-white/80 rounded-xl px-2.5 py-1 text-xs">
+              <Search className="w-3.5 h-3.5 text-slate-400" />
+              <input
+                type="text"
+                value={epFilter}
+                onChange={(e) => setEpFilter(e.target.value)}
+                placeholder="Ep (mis. 1)"
+                className="w-20 bg-transparent outline-none text-slate-700 placeholder:text-slate-400"
+              />
+            </div>
+
+            {/* Balik Urutan Ep 1 <-> Terbaru */}
+            <button
+              onClick={() => setSortAsc((prev) => !prev)}
+              className="px-3 py-1.5 rounded-xl bg-white/80 hover:bg-white text-slate-700 text-[11px] font-bold inline-flex items-center gap-1 transition"
+            >
+              <ArrowUpDown className="w-3.5 h-3.5 text-purple-600" />
+              {sortAsc ? 'Ep 1 → Akhir' : 'Terbaru → Ep 1'}
+            </button>
+
+            {/* Tombol Muat Semua Episode */}
+            {hasNextPage && (
+              <button
+                onClick={handleLoadAllEpisodes}
+                disabled={loadingAllEp}
+                className="px-3 py-1.5 rounded-xl glow-badge text-white text-[11px] font-bold inline-flex items-center gap-1 transition disabled:opacity-60"
+              >
+                <ListPlus className="w-3.5 h-3.5" />
+                {loadingAllEp ? 'Memuat...' : 'Muat Semua Ep'}
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 sm:grid-cols-6 md:grid-cols-8 gap-2 max-h-64 overflow-y-auto pr-1">
+          {visibleEpisodes.map((ep, idx) => {
             const isCurrent = activeEp?.id === ep.id;
             return (
               <button
-                key={ep.id}
+                key={`${ep.id}-${idx}`}
                 onClick={() => loadEpisodeStream(ep)}
                 className={`py-2 px-2 rounded-xl text-xs font-bold transition truncate ${
                   isCurrent
@@ -272,5 +367,4 @@ export default function AnimeDetailPage() {
       </div>
     </div>
   );
-            }
-            
+}
