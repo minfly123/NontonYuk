@@ -1,0 +1,42 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  background: linear-gradient(135deg, #f3e8ff 0%, #fce7f3 45%, #e0f2fe 100%);
+  background-attachment: fixed;
+  color: #1e1b4b;
+  min-height: 100vh;
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 8px 32px rgba(139, 92, 246, 0.08);
+}
+
+.glass-nav {
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  box-shadow: 0 10px 40px rgba(99, 102, 241, 0.14);
+}
+
+.glow-badge {
+  background: linear-gradient(90deg, #f472b6, #a855f7, #38bdf8);
+  box-shadow: 0 0 14px rgba(168, 85, 247, 0.45);
+}
+
+/* Sembunyikan scrollbar horizontal agar rapi */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
