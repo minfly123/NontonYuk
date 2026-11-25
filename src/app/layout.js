@@ -3,7 +3,7 @@
 import './globals.css';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Tv, Clapperboard, Calendar, User } from 'lucide-react';
+import { Home, Clapperboard, Calendar } from 'lucide-react';
 
 export default function RootLayout({ children }) {
   const pathname = usePathname();
@@ -29,7 +29,7 @@ export default function RootLayout({ children }) {
                   Nonton<span className="text-purple-600">Yuk</span>
                 </h1>
                 <span className="text-[11px] font-medium text-slate-500">
-                  Anime & DramaBox Stream
+                  Anime & Melolo Stream
                 </span>
               </div>
             </Link>
@@ -47,7 +47,7 @@ export default function RootLayout({ children }) {
           {children}
         </main>
 
-        {/* Floating Bottom Navigation (Persis gaya gambar referensi) */}
+        {/* Floating Bottom Navigation */}
         <nav className="fixed bottom-4 left-0 right-0 z-50 px-4">
           <div className="max-w-md mx-auto glass-nav rounded-3xl px-3 py-2 flex items-center justify-around">
             {navItems.map((item) => {
@@ -73,5 +73,5 @@ export default function RootLayout({ children }) {
       </body>
     </html>
   );
-    }
-                    
+                  }
+                          
