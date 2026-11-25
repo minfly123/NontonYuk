@@ -180,7 +180,8 @@ function AnimeCard({ anime, badge }) {
       <div className="relative aspect-[3/4] w-full overflow-hidden bg-gradient-to-br from-purple-200 via-pink-100 to-sky-200">
         {poster && !imgError ? (
           <img
-            src={poster}
+            src={`/api/image?url=${encodeURIComponent(poster)}`}
+
             alt={anime.title || 'Anime'}
             loading="lazy"
             referrerPolicy="no-referrer"
